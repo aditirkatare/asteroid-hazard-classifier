@@ -1,0 +1,83 @@
+import unittest
+import numpy as np
+import pandas as pd
+
+from inference import load_artifacts, predict_hazardous_label
+
+
+class TestStandaloneInference(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.model, cls.metadata = load_artifacts()
+        cls.features = cls.metadata["features"]
+        cls.threshold = cls.metadata["prediction_threshold"]
+
+        # Synthetic numeric input for an interface test, not scientific
+        # evidence about a real asteroid.
+        cls.sample = pd.DataFrame(
+            np.zeros((3, len(cls.features))),
+            columns=cls.features,
+            index=[10, 20, 30]
+        )
+
+    def test_artifacts_load(self):
+        self.assertEqual(len(self.features), 16)
+        self.assertAlmostEqual(self.threshold, 0.20)
+
+    def test_output_shape_and_probability_range(self):
+        result = predict_hazardous_label(self.sample)
+        self.assertEqual(result.shape, (3, 2))
+        self.assertTrue(
+            result["Predicted probability"].between(0, 1).all()
+        )
+        self.assertTrue(
+            set(result["Predicted label"].unique()).issubset({0, 1})
+        )
+
+    def test_index_is_preserved(self):
+        result = predict_hazardous_label(self.sample)
+        self.assertEqual(list(result.index), [10, 20, 30])
+
+    def test_column_order_does_not_matter(self):
+        first = predict_hazardous_label(self.sample)
+        second = predict_hazardous_label(self.sample.iloc[:, ::-1])
+        np.testing.assert_allclose(
+            first["Predicted probability"],
+            second["Predicted probability"]
+        )
+
+    def test_extra_columns_are_ignored(self):
+        extra = self.sample.copy()
+        extra["unrelated"] = "ignored"
+        first = predict_hazardous_label(self.sample)
+        second = predict_hazardous_label(extra)
+        np.testing.assert_allclose(
+            first["Predicted probability"],
+            second["Predicted probability"]
+        )
+
+    def test_missing_feature_raises_error(self):
+        bad = self.sample.drop(columns=[self.features[0]])
+        with self.assertRaisesRegex(ValueError, "Missing required features"):
+            predict_hazardous_label(bad)
+
+    def test_infinite_value_raises_error(self):
+        bad = self.sample.copy()
+        bad.iloc[0, 0] = np.inf
+        with self.assertRaisesRegex(ValueError, "infinite"):
+            predict_hazardous_label(bad)
+
+    def test_empty_input_raises_error(self):
+        with self.assertRaisesRegex(ValueError, "no rows"):
+            predict_hazardous_label(self.sample.iloc[:0])
+
+    def test_non_numeric_value_raises_error(self):
+        bad = self.sample.astype(object).copy()
+        bad.iloc[0, 0] = "not-a-number"
+        with self.assertRaises((ValueError, TypeError)):
+            predict_hazardous_label(bad)
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

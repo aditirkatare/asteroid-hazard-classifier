@@ -1,0 +1,31 @@
+{
+  "evaluation_protocol": {
+    "development_method": "StratifiedGroupKFold",
+    "n_splits": 5,
+    "group_column": "Name",
+    "holdout_group_overlap": 0,
+    "holdout_rows": 948,
+    "holdout_unique_asteroids": 739,
+    "threshold_selection": "Selected on development-set grouped out-of-fold predictions to maximize precision among thresholds with recall >= 0.85"
+  },
+  "model": {
+    "algorithm": "RandomForestClassifier",
+    "feature_count": 16,
+    "threshold": 0.2
+  },
+  "development_cross_validation": {
+    "pr_auc_mean": 0.579366,
+    "pr_auc_std": 0.043299,
+    "roc_auc_mean": 0.8872,
+    "roc_auc_std": 0.0193
+  },
+  "holdout_record_level": {
+    "pr_auc": 0.6121071835604469,
+    "roc_auc": 0.8952632669983416,
+    "precision_positive": 0.36182336182336183,
+    "recall_positive": 0.8819444444444444,
+    "f1_positive": 0.5131313131313131,
+    "accuracy": 0.7457805907172996
+  },
+  "interpretation": "Predicts the dataset's Hazardous label, not actual asteroid impact probability."
+}

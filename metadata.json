@@ -1,0 +1,44 @@
+{
+  "project": "Asteroid Hazardous-Label Classifier",
+  "model_type": "RandomForestClassifier",
+  "dataset": "NASA near-Earth-object dataset (nasa.csv)",
+  "target": "Hazardous",
+  "prediction_threshold": 0.2,
+  "features": [
+    "Relative Velocity km per sec",
+    "Miss Dist.(Astronomical)",
+    "Orbit Uncertainity",
+    "Jupiter Tisserand Invariant",
+    "Epoch Osculation",
+    "Eccentricity",
+    "Semi Major Axis",
+    "Inclination",
+    "Asc Node Longitude",
+    "Orbital Period",
+    "Perihelion Distance",
+    "Perihelion Arg",
+    "Aphelion Dist",
+    "Perihelion Time",
+    "Mean Anomaly",
+    "Mean Motion"
+  ],
+  "feature_count": 16,
+  "evaluation": {
+    "evaluation_unit": "record-level, group-held-out",
+    "split_method": "StratifiedGroupKFold",
+    "holdout_rows": 948,
+    "holdout_unique_asteroids": 739,
+    "pr_auc_average_precision": 0.6121071835604469,
+    "roc_auc": 0.8952632669983416,
+    "precision_positive": 0.36182336182336183,
+    "recall_positive": 0.8819444444444444,
+    "f1_positive": 0.5131313131313131,
+    "accuracy": 0.7457805907172996
+  },
+  "limitations": [
+    "Predicts the dataset's Hazardous label, not actual impact probability.",
+    "The dataset label closely aligns with orbital criteria; exceptions exist.",
+    "The chosen threshold prioritizes recall and produces false positives.",
+    "Predictions depend on the input features and dataset distribution."
+  ]
+}
