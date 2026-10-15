@@ -1,4 +1,5 @@
 import unittest
+
 import numpy as np
 import pandas as pd
 
@@ -11,9 +12,7 @@ class TestStandaloneInference(unittest.TestCase):
         cls.model, cls.metadata = load_artifacts()
         cls.features = cls.metadata["features"]
         cls.threshold = float(cls.metadata["prediction_threshold"])
-
-        # Synthetic numeric input for interface tests only. These rows are not
-        # realistic asteroid examples and do not provide scientific evidence.
+        # Synthetic interface-test rows, not realistic asteroid examples.
         cls.sample = pd.DataFrame(
             np.zeros((3, len(cls.features))),
             columns=cls.features,
@@ -24,6 +23,11 @@ class TestStandaloneInference(unittest.TestCase):
         self.assertEqual(len(self.features), 16)
         self.assertAlmostEqual(self.threshold, 0.20)
 
+    def test_loaded_artifacts_are_cached(self):
+        model_again, metadata_again = load_artifacts()
+        self.assertIs(self.model, model_again)
+        self.assertIs(self.metadata, metadata_again)
+
     def test_metadata_feature_schema_matches_model(self):
         self.assertEqual(self.metadata["feature_count"], len(self.features))
         self.assertEqual(len(set(self.features)), len(self.features))
@@ -32,16 +36,10 @@ class TestStandaloneInference(unittest.TestCase):
     def test_output_shape_and_probability_range(self):
         result = predict_hazardous_label(self.sample)
         self.assertEqual(result.shape, (3, 2))
-        self.assertTrue(
-            result["Predicted probability"].between(0, 1).all()
-        )
-        self.assertTrue(
-            set(result["Predicted label"].unique()).issubset({0, 1})
-        )
-        expected_labels = (
-            result["Predicted probability"] >= self.threshold
-        ).astype(int)
-        np.testing.assert_array_equal(result["Predicted label"], expected_labels)
+        self.assertTrue(result["Predicted probability"].between(0, 1).all())
+        self.assertTrue(set(result["Predicted label"].unique()).issubset({0, 1}))
+        expected = (result["Predicted probability"] >= self.threshold).astype(int)
+        np.testing.assert_array_equal(result["Predicted label"], expected)
 
     def test_index_is_preserved(self):
         result = predict_hazardous_label(self.sample)
@@ -51,8 +49,7 @@ class TestStandaloneInference(unittest.TestCase):
         first = predict_hazardous_label(self.sample)
         second = predict_hazardous_label(self.sample.iloc[:, ::-1])
         np.testing.assert_allclose(
-            first["Predicted probability"],
-            second["Predicted probability"],
+            first["Predicted probability"], second["Predicted probability"]
         )
 
     def test_extra_columns_are_ignored(self):
@@ -61,23 +58,19 @@ class TestStandaloneInference(unittest.TestCase):
         first = predict_hazardous_label(self.sample)
         second = predict_hazardous_label(extra)
         np.testing.assert_allclose(
-            first["Predicted probability"],
-            second["Predicted probability"],
+            first["Predicted probability"], second["Predicted probability"]
         )
 
     def test_individual_missing_values_are_imputed(self):
         with_missing = self.sample.copy()
         with_missing.iloc[0, 0] = np.nan
-
         result = predict_hazardous_label(with_missing)
-
         self.assertEqual(result.shape, (3, 2))
         self.assertTrue(np.isfinite(result["Predicted probability"]).all())
 
     def test_entirely_missing_feature_column_raises_error(self):
         bad = self.sample.copy()
         bad[self.features[0]] = np.nan
-
         with self.assertRaisesRegex(ValueError, "no usable numeric values"):
             predict_hazardous_label(bad)
 
@@ -90,7 +83,6 @@ class TestStandaloneInference(unittest.TestCase):
         bad = self.sample.copy()
         bad.columns = [self.features[0]] + list(self.features[1:])
         bad.insert(len(bad.columns), self.features[0], 0.0, allow_duplicates=True)
-
         with self.assertRaisesRegex(ValueError, "duplicate column names"):
             predict_hazardous_label(bad)
 
