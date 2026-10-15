@@ -1,12 +1,14 @@
 # Asteroid Hazardous-Label Classifier
 
+[![Project Tests](https://github.com/aditirkatare/asteroid-hazard-classifier/actions/workflows/tests.yml/badge.svg)](https://github.com/aditirkatare/asteroid-hazard-classifier/actions/workflows/tests.yml)
+
 A machine-learning project investigating hazardous-label classification in a NASA near-Earth-object dataset, with a focus on target-label auditing, identity leakage, group-aware validation, threshold selection, and reproducible inference.
 
 > **Scope:** This model predicts the dataset's `Hazardous` label. It does not estimate actual Earth-impact probability or replace professional orbital-risk assessment.
 
 ## Key Results
 
-Final evaluation used a group-separated holdout set containing 948 records from 739 unique asteroid identifiers. No asteroid identifier appeared in both the development and holdout sets.
+Final evaluation used a group-separated holdout set containing 948 records from 739 unique asteroid identifiers. No asteroid identifier appeared in both development and holdout partitions.
 
 | Metric | Group-held-out holdout |
 |---|---:|
@@ -17,14 +19,14 @@ Final evaluation used a group-separated holdout set containing 948 records from 
 | Positive-class F1 | 0.5131 |
 | Accuracy | 0.7458 |
 
-At the selected decision threshold of **0.20**, the holdout confusion matrix was:
+At the selected decision threshold of **0.20**, the record-level holdout confusion matrix was:
 
 | Actual / predicted | Negative | Positive |
 |---|---:|---:|
 | Negative | 580 | 224 |
 | Positive | 17 | 127 |
 
-The threshold was selected using grouped out-of-fold predictions on the development set, targeting recall of at least 0.85 and then maximizing precision among qualifying thresholds. It was not tuned on holdout labels. The resulting recall comes with many false positives, so the threshold represents a trade-off rather than a universal operating point.
+The threshold was selected using grouped out-of-fold predictions on the development set, targeting positive-class recall of at least 0.85 and then maximizing precision among qualifying thresholds. Holdout labels were not used to choose the threshold. At this threshold, recall is high but there are many false positives, so the threshold is a trade-off rather than a universal operating point.
 
 ## Dataset Audit and Label Investigation
 
@@ -37,17 +39,19 @@ The dataset contains 4,687 records and 3,692 unique asteroid identifiers.
 
 This close agreement suggests the target label is strongly associated with underlying orbital criteria. It does **not** establish the exact process used to generate every label, and the disagreements remain relevant. This is a label-provenance finding, not proof that the rule is the definitive source of the target.
 
-The rule-related fields, `Absolute Magnitude` and `Minimum Orbit Intersection`, were excluded from the model features to avoid directly supplying this obvious shortcut to the classifier.
+The rule-related fields, `Absolute Magnitude` and `Minimum Orbit Intersection`, were excluded from model features to avoid directly supplying this obvious shortcut to the classifier.
 
 ## Why Group-Aware Evaluation?
 
-An initial random row split placed 287 asteroid identifiers in both the training and test partitions. Since repeated records can represent the same asteroid, this can make a row-level test overly optimistic for generalization to unseen identifiers.
+An initial random row split placed 287 asteroid identifiers in both training and test partitions. Since repeated records can represent the same asteroid, this can make a row-level test overly optimistic for generalization to unseen identifiers.
 
-The final workflow instead used a development/holdout split with `StratifiedGroupKFold`, grouping by asteroid `Name`. Five-fold grouped cross-validation was used for model comparison on the development partition. The final holdout was reserved for final evaluation.
+The final workflow used a development/holdout split with `StratifiedGroupKFold`, grouping by asteroid `Name`. Five-fold grouped cross-validation was used for model comparison on the development partition.
+
+**Holdout-use note:** the holdout was not used to select the model or choose the decision threshold. Permutation feature importance was subsequently calculated on holdout records, however, so the holdout should not be described as untouched for every post-hoc analysis. Avoid using those holdout importance results to tune further model choices.
 
 ## Model and Validation
 
-The selected model is a Random Forest pipeline with median imputation and balanced class weights, using 16 features. The classification threshold is stored in `metadata.json`.
+The selected model is a Random Forest pipeline with median imputation and balanced class weights, using 16 features. The decision threshold is stored in `metadata.json`.
 
 Five-fold grouped cross-validation on the development set:
 
@@ -56,13 +60,13 @@ Five-fold grouped cross-validation on the development set:
 | Logistic Regression | 0.3944 | 0.0242 | 0.8156 | 0.0072 |
 | Random Forest | **0.5794** | 0.0433 | **0.8872** | 0.0193 |
 
-The Random Forest was the stronger candidate under these grouped cross-validation results. Standard deviations describe variation across the five folds.
+The Random Forest had higher mean PR-AUC and ROC-AUC in this grouped cross-validation comparison. Standard deviations describe variation across the five folds.
 
 ## Feature Interpretation
 
 Permutation importance on the group-held-out records ranked `Orbit Uncertainity`, `Inclination`, and `Perihelion Distance` as the three strongest features by decrease in average precision when permuted.
 
-Feature importance describes model reliance under this evaluation setup. It does not establish causation, and importance rankings may change with the data, feature dependencies, and evaluation method.
+Feature importance describes model reliance under this evaluation setup. It does not establish causation, and importance rankings may change with the data, feature dependencies, and evaluation method. Because this analysis used holdout records, it is descriptive post-hoc analysis rather than evidence for additional tuning.
 
 ## Features and Usage
 
@@ -74,7 +78,7 @@ Install the pinned dependencies:
 pip install -r requirements.txt
 ```
 
-Place `inference.py`, `metadata.json`, and `asteroid_hazard_classifier.joblib` together. Then supply a CSV containing the required feature columns:
+Place `inference.py`, `metadata.json`, and `asteroid_hazard_classifier.joblib` together. Supply a CSV containing all required feature columns:
 
 ```python
 import pandas as pd
@@ -87,21 +91,23 @@ print(predictions.head())
 predictions.to_csv("predictions.csv", index=True)
 ```
 
-Run inference tests from the repository directory:
+Run **all** automated tests from the repository directory:
 
 ```bash
-python -m unittest test_inference -v
+python -m unittest discover -v
 ```
 
-Synthetic inputs in these tests verify the software interface; they are not scientific model-validation examples.
+The tests cover the inference interface and consistency checks between the evaluation report and metadata. Synthetic inputs in the inference tests verify software behavior; they are not scientific model-validation examples.
 
 ## Repository Contents
 
 - `asteroid_hazard_classifier.joblib`: fitted model pipeline
 - `metadata.json`: model configuration, feature schema, evaluation metadata, and limitations
-- `inference.py`: reusable inference function
-- `evaluation_report.json`: machine-readable evaluation results
-- `test_inference.py`: automated inference tests
+- `inference.py`: reusable inference function with cached artifact loading
+- `evaluation_report.json`: machine-readable evaluation protocol, metrics, counts, and caveats
+- `test_inference.py`: inference interface tests
+- `test_evaluation_report.py`: evaluation report consistency tests
+- `.github/workflows/tests.yml`: automated tests on pushes to `main` and pull requests targeting `main`
 - `requirements.txt`: pinned Python dependencies
 - `environment.json`: recorded package versions
 - `DATASET_PROVENANCE.md`: dataset source and licensing note
@@ -110,10 +116,11 @@ Synthetic inputs in these tests verify the software interface; they are not scie
 
 1. The target is the source dataset's `Hazardous` label, not actual impact risk.
 2. The target closely aligns with a diagnostic combination of orbital criteria, with observed exceptions.
-3. The low decision threshold prioritizes recall and produces false positives.
-4. Generalization to future observations or a different labeling process has not been established by this evaluation.
-5. Model probabilities are not established as calibrated real-world risk estimates.
-6. Serialized model artifacts should only be loaded from trusted sources.
+3. The 0.20 threshold prioritizes positive-class recall but produces many false positives.
+4. Generalization to future observations or a different labeling process has not been established.
+5. Model probabilities have not been established as calibrated real-world risk estimates.
+6. Permutation feature importance was calculated on holdout data and should be treated as post-hoc descriptive analysis.
+7. Serialized model artifacts should only be loaded from trusted sources.
 
 ## Dataset Source and Licensing
 
