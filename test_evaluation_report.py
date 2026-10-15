@@ -23,14 +23,10 @@ class TestEvaluationReportConsistency(unittest.TestCase):
         self.assertEqual(self.metadata["feature_count"], len(self.metadata["features"]))
 
     def test_threshold_matches(self):
-        report_threshold = self.report["model"]["threshold"]
+        # In the expanded report, threshold is stored under evaluation_protocol.
+        report_threshold = self.report["evaluation_protocol"]["decision_threshold"]
         metadata_threshold = self.metadata["prediction_threshold"]
         self.assertAlmostEqual(report_threshold, metadata_threshold, places=12)
-        self.assertAlmostEqual(
-            self.report["evaluation_protocol"]["decision_threshold"],
-            metadata_threshold,
-            places=12,
-        )
 
     def test_holdout_scores_match_metadata(self):
         report_metrics = self.report["holdout_record_level"]["metrics"]
@@ -74,16 +70,26 @@ class TestEvaluationReportConsistency(unittest.TestCase):
     def test_holdout_sizes_match_metadata(self):
         protocol = self.report["evaluation_protocol"]
         evaluation = self.metadata["evaluation"]
-        self.assertEqual(protocol["holdout_rows"], self.report["holdout_record_level"]["sample_count"])
+        self.assertEqual(
+            protocol["holdout_rows"],
+            self.report["holdout_record_level"]["sample_count"],
+        )
         self.assertEqual(protocol["holdout_rows"], evaluation["holdout_rows"])
-        self.assertEqual(protocol["holdout_unique_asteroids"], evaluation["holdout_unique_asteroids"])
+        self.assertEqual(
+            protocol["holdout_unique_asteroids"],
+            evaluation["holdout_unique_asteroids"],
+        )
         self.assertEqual(protocol["development_holdout_identifier_overlap"], 0)
 
     def test_cross_validation_fold_mean_is_consistent(self):
         cv = self.report["development_cross_validation"]["random_forest"]
-        mean_from_rounded_folds = sum(cv["pr_auc_per_fold_rounded"]) / len(cv["pr_auc_per_fold_rounded"])
+        mean_from_rounded_folds = sum(cv["pr_auc_per_fold_rounded"]) / len(
+            cv["pr_auc_per_fold_rounded"]
+        )
         # Fold scores are rounded to 4 decimals, so allow a small rounding tolerance.
-        self.assertAlmostEqual(mean_from_rounded_folds, cv["pr_auc_mean"], delta=0.0001)
+        self.assertAlmostEqual(
+            mean_from_rounded_folds, cv["pr_auc_mean"], delta=0.0001
+        )
 
     def test_secondary_asteroid_confusion_matrix_has_expected_size(self):
         secondary = self.report["holdout_asteroid_level_secondary"]
