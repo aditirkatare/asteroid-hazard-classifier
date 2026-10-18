@@ -68,17 +68,43 @@ Permutation importance on the group-held-out records ranked `Orbit Uncertainity`
 
 Feature importance describes model reliance under this evaluation setup. It does not establish causation, and importance rankings may change with the data, feature dependencies, and evaluation method. Because this analysis used holdout records, it is descriptive post-hoc analysis rather than evidence for additional tuning.
 
+
 ## Features and Usage
 
-The exact 16-feature schema is stored in `metadata.json`. The inference function requires every listed feature, restores the expected feature order, ignores extra columns, validates numeric inputs, and rejects infinite values or a feature that is entirely missing in the supplied batch. Individual missing numeric values can be handled by the fitted pipeline's imputer.
+The exact 16-feature input schema is stored in `metadata.json`. The inference function restores the expected feature order, ignores extra columns, validates numeric inputs, and rejects infinite values or a feature that is entirely missing across the supplied batch. Individual missing numeric values can be handled by the fitted pipeline's imputer.
+
+### 1. Set up the environment
+
+Clone the repository and enter its directory:
+
+```bash
+git clone https://github.com/aditirkatare/asteroid-hazard-classifier.git
+cd asteroid-hazard-classifier
+```
 
 Install the pinned dependencies:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-Place `inference.py`, `metadata.json`, and `asteroid_hazard_classifier.joblib` together. Supply a CSV containing all required feature columns:
+Use a Python version compatible with the pinned dependencies in `requirements.txt`. A virtual environment is recommended to keep project dependencies isolated.
+
+### 2. Run the automated tests
+
+From the repository root, run:
+
+```bash
+python -m unittest discover -v
+```
+
+The tests cover the inference interface and consistency checks between the evaluation report and metadata. Synthetic inputs in inference tests verify software behavior; they are not scientific model-validation examples.
+
+### 3. Run inference on a CSV file
+
+Keep `inference.py`, `metadata.json`, and `asteroid_hazard_classifier.joblib` together in the repository directory.
+
+Create `new_asteroid_records.csv` with all required feature columns listed in `metadata.json`, then run:
 
 ```python
 import pandas as pd
@@ -88,16 +114,19 @@ new_records = pd.read_csv("new_asteroid_records.csv")
 predictions = predict_hazardous_label(new_records)
 
 print(predictions.head())
-predictions.to_csv("predictions.csv", index=True)
+predictions.to_csv("predictions.csv", index=False)
 ```
 
-Run **all** automated tests from the repository directory:
+The output contains the model's predictions for the supplied records. Check the inference function and metadata for the exact output format and threshold behavior.
 
-```bash
-python -m unittest discover -v
-```
+### 4. Reproducibility notes
 
-The tests cover the inference interface and consistency checks between the evaluation report and metadata. Synthetic inputs in the inference tests verify software behavior; they are not scientific model-validation examples.
+- The fitted model and its expected feature schema are stored in the repository.
+- Dependency versions are pinned in `requirements.txt`; `environment.json` records the environment used for the project.
+- Evaluation metrics and protocol details are recorded in `evaluation_report.json`.
+- Re-running inference is different from reproducing model training and evaluation. Do not assume the training pipeline is reproducible from these instructions alone.
+- Only load serialized model artifacts from trusted sources.
+
 
 ## Repository Contents
 
